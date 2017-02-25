@@ -2,7 +2,7 @@
   "name": "stfh-backend",
   "version": "0.0.1",
   "description": "STFH backend",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -15,5 +15,13 @@
   "bugs": {
     "url": "https://github.com/TakefiveInteractive/stfh-backend/issues"
   },
-  "homepage": "https://github.com/TakefiveInteractive/stfh-backend#readme"
+  "homepage": "https://github.com/TakefiveInteractive/stfh-backend#readme",
+  "dependencies": {
+    "bluebird": "^3.4.7",
+    "express": "^4.14.1",
+    "redis": "^2.6.5",
+    "socket.io": "^1.7.3",
+    "uuid": "^3.0.1",
+    "winston": "^2.3.1"
+  }
 }
