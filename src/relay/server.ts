@@ -162,6 +162,20 @@ type Point = [number, number];
     });
 
     /**
+     * Request refresh on file content. ONLY call from a viewer.
+     *
+     * file:content:refresh : { roomId, path }
+     *
+     * Viewers receive thru ack:
+     * { content }
+     */
+    sock.on('file:content:refresh', async ({roomId, path}, ack) => {
+      const fileKey = formatter.formatRoomFileState(roomId, path);
+      const content = await db.hgetAsync(fileKey, 'content');
+      ack({content});
+    });
+
+    /**
      * Update editor cursor. Info may contain EITHER selection or pos.
      * If it's a single position, selection field must NOT present. Vice versa.
      *
