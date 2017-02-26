@@ -139,7 +139,7 @@ type Point = [number, number];
      */
     sock.on('file:switch', async ({ roomId, path, type }) => {
       const fileKey = formatter.formatRoomFileState(roomId, path);
-      const yes = await db.hexistsAsync(fileKey);
+      const yes = await db.hexistsAsync(fileKey, 'content');
       await db.hmsetAsync(fileKey, {filepath: path, fileType: type});
       if (yes) {
         sock.emit('file:refresh', {path});
@@ -218,6 +218,7 @@ type Point = [number, number];
       }
       ack(retval);
     });
+
 
   });
 
