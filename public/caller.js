@@ -1,4 +1,4 @@
-var peer = new Peer({ key: 'gu7tiuaa9p8ehfr', secure: true })
+var peer = new Peer({ key: 'gu7tiuaa9p8ehfr', secure: true, debug: 3 })
 var video = document.querySelector('video')
 
 peer.on('connection', function (conn) {
