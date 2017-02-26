@@ -1,5 +1,4 @@
-var peerId = window.location.search.replace('?', '') || 'electron-video'
-var peer = new Peer(peerId, { key: 'ob1bohiqjkedn29', secure: true })
+var peer = new Peer({ key: 'gu7tiuaa9p8ehfr', secure: true })
 var video = document.querySelector('video')
 
 peer.on('connection', function (conn) {
@@ -9,6 +8,7 @@ peer.on('connection', function (conn) {
 peer.on('open', function (id) {
   console.log('My ID ', id)
 
+  var peerId = window.location.search.replace('?', '') || 'electron-video'
   console.log('peerID', peerId)
   var conn = peer.connect(peerId)
 })
