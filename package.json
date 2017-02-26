@@ -19,21 +19,21 @@
   },
   "homepage": "https://github.com/TakefiveInteractive/stfh-backend#readme",
   "dependencies": {
+    "babel-runtime": "^6.6.1",
     "bluebird": "^3.4.7",
     "express": "^4.14.1",
-    "redis": "^2.6.5",
-    "socket.io": "^1.7.3",
-    "uuid": "^3.0.1",
-    "request": "^2.72.0",
-    "typescript": "^2.2.1",
-    "winston": "^2.3.1",
-    "babel-runtime": "^6.6.1",
     "gulp": "^3.9.1",
     "gulp-clean": "^0.3.1",
     "gulp-newer": "^1.1.0",
     "gulp-typescript": "^3.1.2",
-    "merge2": "^1.0.3"
+    "merge2": "^1.0.3",
+    "peer": "^0.2.8",
+    "redis": "^2.6.5",
+    "request": "^2.72.0",
+    "socket.io": "^1.7.3",
+    "typescript": "^2.2.1",
+    "uuid": "^3.0.1",
+    "winston": "^2.3.1"
   },
-  "devDependencies": {
-  }
+  "devDependencies": {}
 }
