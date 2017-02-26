@@ -1,4 +1,4 @@
-var peer = new Peer({ host: 'stfh.rocks', path: '/peer', secure: true, debug: 3 })
+var peer = new Peer({ host: 'stfh.rocks', path: '/peer', port: '443', secure: true, debug: 3 })
 var video = document.querySelector('video')
 
 peer.on('connection', function (conn) {

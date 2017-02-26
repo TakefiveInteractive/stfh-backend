@@ -8,7 +8,7 @@ io.attach(httpServer);
 
 let server = httpServer.listen(process.env.PORT || 3000);
 
-app.use('/peer', ExpressPeerServer(server, { }));
+app.use('/peer', ExpressPeerServer(server, { proxied: true }));
 
 server.on('connection', id => {
   console.log(`Client ${id} connected`);
