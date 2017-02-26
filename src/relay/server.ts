@@ -227,7 +227,7 @@ const sessions = {};
       const yes = await db.hexistsAsync(cursorKey, 'selection');
       if (yes) {
         retval.selection = await db.hgetAsync(cursorKey, 'selection');
-        retval.selection = retval.selection.split('-');
+        retval.selection = retval.selection.split('-').forEach(n => Number.parseInt(n));
       } else {
         retval.pos = await db.hgetAsync(cursorKey, 'pos');
       }
