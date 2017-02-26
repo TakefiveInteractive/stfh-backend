@@ -4,6 +4,7 @@
   "description": "STFH backend",
   "main": "dist/index.js",
   "scripts": {
+    "postinstall": "npm install -g typings && typings install && gulp",
     "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

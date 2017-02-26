@@ -1,1 +1,1 @@
-web: npm install -g typings && typings install && gulp && node dist/index.js
+web: node dist/index.js
