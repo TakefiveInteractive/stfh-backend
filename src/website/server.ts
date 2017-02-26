@@ -7,7 +7,7 @@ app.get('/', (req, res, next) => {
 });
 
 // HTTPS challenge handling
-app.get('/.well-known/acme-challenge/(.*)', (req, res, next) => {
+app.get('/.well-known/acme-challenge/*', (req, res, next) => {
   res.send(process.env.LETS_ENCRYPT_CHALLENGE);
 });
 
