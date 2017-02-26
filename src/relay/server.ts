@@ -7,6 +7,8 @@ const sockio = socketio();
 
 const sockets = {};
 
+type Point = [number, number];
+
 (async function() {
   const db = <any> await redis;
 
@@ -159,10 +161,26 @@ const sockets = {};
       await sendToClientsInRoom(roomId, 'file:content', {path, content});
     });
 
-    sock.on('cursor:update', async data => {
+    /**
+     * Update editor cursor. Info may contain EITHER selection or pos.
+     * If it's a single position, selection field must NOT present. Vice versa.
+     *
+     * editor:cursor : { roomId, selection?, pos? }
+     *
+     * Viewers receive:
+     * { selection?, pos? } // Same reasoning as above. EITHER selection OR pos
+     */
+    sock.on('editor:cursor', async data => {
+      const roomId = data.roomId;
+      const cursorKey = formatter.formatRoomEditorCursor(roomId);
+      const update : any = {};
       if (typeof data.pos === 'undefined' || data.pos === null) {
-
+        update.selection = `${data.selection[0].join(':')},${data.selection[1].join(':')}`;
+      } else {
+        update.pos = data.pos.join(':');
       }
+      await db.hmsetAsync(cursorKey, update);
+      await sendToClientsInRoom(roomId, 'editor:cursor', update);
     });
 
   });
