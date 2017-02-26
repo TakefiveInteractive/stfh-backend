@@ -17,7 +17,7 @@ const sockets = {};
       if (sockets[id].type === 'viewer') {
         sockets[id].emit(eventname, payload);
       }
-    });
+    }));
   };
 
   sockio.on('connection', sock => {
