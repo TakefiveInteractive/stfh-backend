@@ -1,0 +1,3 @@
+[submodule "stfh-frontend"]
+	path = stfh-frontend
+	url = https://github.com/TakefiveInteractive/stfh-frontend
