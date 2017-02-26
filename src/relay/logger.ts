@@ -1,3 +1,3 @@
-import logger from 'winston';
+import * as logger from 'winston';
 
 export default logger;

@@ -2,10 +2,11 @@
   "name": "stfh-backend",
   "version": false,
   "globalDependencies": {
-    "node": "github:DefinitelyTyped/DefinitelyTyped/node/node.d.ts#162eb5eba8c22f6a9b6c803eff41ab495f95cec8"
+    "node": "registry:dt/node#7.0.0+20170204020307"
   },
   "dependencies": {
     "bluebird": "registry:npm/bluebird#3.3.4+20160411163813",
+    "express": "registry:dt/express#4.0.0+20170118060322",
     "request": "registry:npm/request#2.69.0+20160304121250"
   }
 }
