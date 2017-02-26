@@ -127,7 +127,6 @@ const sockets = {};
       const fileListKey = formatter.formatRoomFileListKey(roomId);
       await db.setAsync(fileListKey, JSON.stringify(fileList));
       await sendToClientsInRoom(roomId, 'filelist:push', {fileList});
-      sock.emit('room:ready');
     });
 
     /**
