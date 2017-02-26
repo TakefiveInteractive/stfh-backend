@@ -34,7 +34,7 @@ type Point = [number, number];
      * Return with { roomId, userId }
      */
     sock.on('room:create', ({roomName, broadcasterName}, ack) => {
-      const roomId = uuidV4();
+      const roomId = roomName;
       const key = formatter.formatRoomKey(roomId);
 
       db.hmsetAsync(key, {roomId, roomName})
