@@ -32,9 +32,10 @@ const sockets = {};
      * Broadcaster create room
      *
      * room:create : { roomName }
-     * room:create:ok
+     *
+     * Return with { roomId, userId }
      */
-    sock.on('room:create', ({roomName, broadcasterName}) => {
+    sock.on('room:create', ({roomName, broadcasterName}, ack) => {
       const roomId = uuidV4();
       const key = formatter.formatRoomKey(roomId);
 
@@ -48,73 +49,78 @@ const sockets = {};
           })
         })
         .then(() => sockets[userId].type = 'broadcaster')
-        .then(() => sock.emit('room:create:ok', {roomId, userId}));
+        .then(() => ack({roomId, userId}));
     });
 
     /**
      * Delete room. Only broadcaster can do this
      *
      * room:delete : { roomId, broadcasterId }
-     * room:delete:ok
-     * room:delete:fail { reason } // Due to broadcasterId mismatch
+     *
+     * Return with null if ok.
+     *  { error } if failed
      */
-    sock.on('room:delete', ({ roomId, broadcasterId }) => {
+    sock.on('room:delete', ({ roomId, broadcasterId }, ack) => {
       const roomKey = formatter.formatRoomKey(roomId);
       const broadcasterKey = formatter.formatRoomBroadcasterKey(userId);
 
       if (broadcasterId !== userId) {
-        return sock.emit('room:delete:fail', { error: 'broadcasterId mismatch' });
+        return ack({ error: 'broadcasterId mismatch' });
       }
       db.hdelAsync(broadcasterKey)
         .then(() => db.hdelAsync(roomKey))
         .then(() => delete sockets[userId])
-        .then(() => sock.emit('room:delete:ok'));
+        .then(() => ack(null));
     });
 
     /**
      * Viewer connect to room
      *
      * viewer:connect : { nickname, roomId }
-     * viewer:connect:ok : { id }
+     *
+     * Return with { userId }
      */
-    sock.on('viewer:connect', ({roomId, nickname}) => {
+    sock.on('viewer:connect', ({roomId, nickname}, ack) => {
       const viewerKey = formatter.formatRoomViewerKey(roomId, userId);
       const viewersListKey = formatter.formatRoomViewersListKey(roomId);
 
       db.hmsetAsync(viewerKey, {userId, nickname, createTime: new Date()})
         .then(() => db.saddAsync(viewersListKey, userId))
         .then(() => sockets[userId].type = 'viewer')
-        .then(() => sock.emit('viewer:connect:ok', {userId}));
+        .then(() => ack({userId}));
     });
 
     /**
      * Viewer disconnect from room
      *
      * viewer:disconnect : { roomId, viewerId }
-     * viewer:disconnect:ok
-     * room:disconnect:fail { reason } // Due to viewerId mismatch
+     *
+     * Return with null if ok.
+     *  { error } if failed
      */
-    sock.on('viewer:disconnect', ({roomId, viewerId}) => {
+    sock.on('viewer:disconnect', ({roomId, viewerId}, ack) => {
       const viewerKey = formatter.formatRoomViewerKey(roomId, viewerId);
       const viewersListKey = formatter.formatRoomViewersListKey(roomId);
 
       if (viewerId !== userId) {
-        return sock.emit('viewer:disconnect:fail');
+        return ack({ error: 'viewerId mismatch' });
       }
 
       db.hdelAsync(viewerKey)
         .then(() => db.spopAsync(viewersListKey))
         .then(() => delete sockets[viewerId])
-        .then(() => sock.emit('viewer:disconnect:ok'));
+        .then(() => ack(null));
     });
 
     /**
      * Update filelist. The file tree has to be in whole
      *
      * filelist:update : { roomId, fileList }
+     *
+     * Broadcaster receives event
      * room:ready
      *
-     * Client side:
+     * Viewers receive:
      * filelist:push : { fileList }
      */
     sock.on('filelist:update', async ({roomId, fileList}) => {
@@ -128,7 +134,10 @@ const sockets = {};
      * Switch to another file
      *
      * file:switch : { roomId, path, type }
-     * file:refresh : { path }
+     *
+     * Broadcaster MAY receive event
+     *    file:refresh : { path }
+     * if file content is never on server
      */
     sock.on('file:switch', async ({ roomId, path, type }) => {
       const fileKey = formatter.formatRoomFileState(roomId, path);
