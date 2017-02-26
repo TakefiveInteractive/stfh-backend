@@ -8,7 +8,7 @@ newer = require('gulp-newer');
 const sourcePath = ['src/**/*.ts'];
 const sourceDest = 'dist';
 
-gulp.task('default', [], function() {
+gulp.task('default', ['build-website'], function() {
 
   const tsProject = ts.createProject({
     emitDecoratorMetadata: true,

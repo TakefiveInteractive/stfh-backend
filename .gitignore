@@ -64,3 +64,5 @@ certbot.log
 .DS_Store
 
 *.rdb
+
+public
