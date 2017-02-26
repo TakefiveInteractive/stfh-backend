@@ -1,21 +1,52 @@
-import sockio from 'socket.io';
+import * as socketio from 'socket.io';
 import redis from './database';
 import logger from './logger';
-import uuidV4 from 'uuid/v4';
+import * as uuidV4 from 'uuid/v4';
+import * as formatter from './formatter';
 
-const sockio = sockio();
+const sockio = socketio();
 const db = <any>redis;
 
 sockio.on('connection', sock => {
-  sock.on('viewer:connect', data => {
-    db.delAsync(data.nickname)
-      .then(num => {
-        if (num !== 0) {
-          logger.warn(`
-          Nickname ${data.nickname} was present before connect. Probable synchronization issue!`);
-        }
+
+  /**
+   * Broadcaster create room
+   *
+   * Schema: { roomName }
+   */
+  sock.on('room:create', ({ roomName, broadcasterName }) => {
+    const id = uuidV4();
+    const broadcasterId = uuidV4();
+    const key = formatter.formatRoomKey(id);
+
+    db.hmsetAsync(key, { id, roomName })
+      .then(() => {
+        const broadcasterKey = formatter.formatRoomBroadcasterKey(id);
+        return db.hmsetAsync(broadcasterKey, { id: broadcasterId, nickname: broadcasterName, createTime: new Date() })
       })
-      .then(db.hsetAsync(data.nickname, { id: uuidV4(), nickname: data.nickname,  }))
+      .then(() => db.hmsetAsync(key, { broadcasterId }))
+      .then(() => sock.emit('room:create:ok', { id, broadcasterId }));
+  });
+
+  /**
+   * Viewer connect to room
+   *
+   * Schema: { nickname, roomId }
+   */
+  sock.on('viewer:connect', ({ roomId, nickname }) => {
+    const id = uuidV4();
+    const key = formatter.formatRoomViewerKey(roomId, id);
+    const viewersListKey = formatter.formatRoomViewersList(roomId);
+
+    db.hmsetAsync(key, { id, nickname, createTime: new Date() })
+      .then(() => db.lpushAsync(viewersListKey, id))
+      .then(() => sock.emit('viewer:connect:ok', { id }));
+  });
+
+  sock.on('viewer:disconnect', ({ roomId, viewerId }) => {
+    const viewerKey = formatter.formatRoomViewerKey(roomId, viewerId);
+    db.hdel(viewerKey)
+      .then(() => db.)
   });
 });
 
