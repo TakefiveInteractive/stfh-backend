@@ -17,7 +17,7 @@ const sockets = {};
       if (sockets[id].type === 'viewer') {
         sockets[id].emit(eventname, payload);
       }
-    });
+    }));
   };
 
   sockio.on('connection', sock => {
@@ -122,6 +122,21 @@ const sockets = {};
       await db.setAsync(fileListKey, JSON.stringify(fileList));
       await sendToClientsInRoom(roomId, 'filelist:push', {fileList});
       sock.emit('room:ready');
+    });
+
+    /**
+     * Switch to another file
+     *
+     * file:switch : { roomId, path, type }
+     * file:refresh : { path }
+     */
+    sock.on('file:switch', async ({ roomId, path, type }) => {
+      const fileKey = formatter.formatRoomFileState(roomId, path);
+      const yes = await db.hexistsAsync(fileKey);
+      await db.hmsetAsync(fileKey, {filepath: path, fileType: type});
+      if (yes) {
+        sock.emit('file:refresh', {path});
+      }
     });
 
     sock.on('cursor:update', async data => {

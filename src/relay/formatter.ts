@@ -9,3 +9,5 @@ export let formatRoomViewersListKey = roomId => `room#${roomId}:viewers`;
 export let formatRoomFileListKey = roomId => `room#${roomId}:files`;
 
 export let formatRoomEditorState = roomId => `room#${roomId}:editorstate`;
+
+export let formatRoomFileState = (roomId, filepath) => `room#${roomId}:file#${filepath}`;
