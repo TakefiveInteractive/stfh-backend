@@ -18,7 +18,7 @@ type Point = [number, number];
     const viewersList = await db.smembersAsync(roomKey);
     viewersList.forEach(viewerId => Object.keys(sockets[roomId]).forEach(id => {
       if (sockets[roomId][id].type === 'viewer') {
-        sockets[roomId][id].emit(eventname, payload);
+        sockets[roomId][id].socket.emit(eventname, payload);
       }
     }));
   };
