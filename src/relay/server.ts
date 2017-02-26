@@ -2,13 +2,10 @@ import * as socketio from 'socket.io';
 import redis from './database';
 import * as uuidV4 from 'uuid/v4';
 import * as formatter from './formatter';
-import {cursorTo} from "readline";
 
 const sockio = socketio();
 
-const sockets = {};
-
-type Point = [number, number];
+const sessions = {};
 
 (async function() {
   const db = <any> await redis;
@@ -16,9 +13,9 @@ type Point = [number, number];
   const sendToClientsInRoom = async (roomId, eventname, payload?) => {
     const roomKey = formatter.formatRoomViewersListKey(roomId);
     const viewersList = await db.smembersAsync(roomKey);
-    viewersList.forEach(viewerId => Object.keys(sockets[roomId]).forEach(id => {
-      if (sockets[roomId][id].type === 'viewer') {
-        sockets[roomId][id].socket.emit(eventname, payload);
+    viewersList.forEach(viewerId => Object.keys(sessions[roomId]).forEach(id => {
+      if (sessions[roomId][id].type === 'viewer') {
+        sessions[roomId][id].socket.emit(eventname, payload);
       }
     }));
   };
@@ -48,8 +45,8 @@ type Point = [number, number];
           })
         })
         .then(() => {
-          sockets[roomId] = {};
-          sockets[roomId][userId] = {socket: sock, type: 'broadcaster'};
+          sessions[roomId] = {broadcasterSocket: sock};
+          sessions[roomId][userId] = {socket: sock, type: 'broadcaster'};
         })
         .then(() => ack({roomId, userId}));
     });
@@ -71,7 +68,7 @@ type Point = [number, number];
       }
       db.hdelAsync(broadcasterKey)
         .then(() => db.hdelAsync(roomKey))
-        .then(() => delete sockets[roomId])
+        .then(() => delete sessions[roomId])
         .then(() => ack(null));
     });
 
@@ -88,7 +85,7 @@ type Point = [number, number];
 
       db.hmsetAsync(viewerKey, {userId, nickname, createTime: new Date()})
         .then(() => db.saddAsync(viewersListKey, userId))
-        .then(() => sockets[roomId][userId] = {socket: sock, type: 'viewer'})
+        .then(() => sessions[roomId][userId] = {socket: sock, type: 'viewer'})
         .then(() => ack({userId}));
     });
 
@@ -110,7 +107,7 @@ type Point = [number, number];
 
       db.hdelAsync(viewerKey)
         .then(() => db.spopAsync(viewersListKey))
-        .then(() => delete sockets[roomId][viewerId])
+        .then(() => delete sessions[roomId][viewerId])
         .then(() => ack(null));
     });
 
@@ -139,10 +136,17 @@ type Point = [number, number];
      */
     sock.on('file:switch', async ({ roomId, path, type }) => {
       const fileKey = formatter.formatRoomFileState(roomId, path);
+      const editorStateKey = formatter.formatRoomEditorState(roomId);
       const yes = await db.hexistsAsync(fileKey, 'content');
+
       await db.hmsetAsync(fileKey, {filepath: path, fileType: type});
+      await db.hmsetAsync(editorStateKey, {filepath: path});
+
       if (yes) {
-        sock.emit('file:refresh', {path});
+        sock.emit('file:refresh', {path}, async ({ content }) => {
+          await db.hsetAsync(fileKey, 'content', content);
+          await sendToClientsInRoom(roomId, 'file:switch', {path, type});
+        });
       } else {
         await sendToClientsInRoom(roomId, 'file:switch', {path, type});
       }
@@ -173,7 +177,14 @@ type Point = [number, number];
     sock.on('file:content:refresh', async ({roomId, path}, ack) => {
       const fileKey = formatter.formatRoomFileState(roomId, path);
       const content = await db.hgetAsync(fileKey, 'content');
-      ack({content});
+      if (!content) {
+        sessions[roomId].broadcasterSocket.emit('file:refresh', async ({content}) => {
+          await db.hsetAsync(fileKey, 'content', content);
+          ack({content})
+        });
+      } else {
+        ack({content});
+      }
     });
 
     /**
