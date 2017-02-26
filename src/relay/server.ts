@@ -31,7 +31,7 @@ const sockets = {};
     /**
      * Broadcaster create room
      *
-     * room:create : { roomName }
+     * room:create : { roomName, broadcasterName }
      *
      * Return with { roomId, userId }
      */
@@ -150,7 +150,7 @@ const sockets = {};
 
     sock.on('cursor:update', async data => {
       if (typeof data.pos === 'undefined' || data.pos === null) {
-        
+
       }
     });
 
