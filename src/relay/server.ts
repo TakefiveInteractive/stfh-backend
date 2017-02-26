@@ -2,6 +2,7 @@ import * as socketio from 'socket.io';
 import redis from './database';
 import * as uuidV4 from 'uuid/v4';
 import * as formatter from './formatter';
+import {start} from "repl";
 
 const sockio = socketio();
 
@@ -193,6 +194,8 @@ const sessions = {};
      *
      * editor:cursor : { roomId, selection?, pos? }
      *
+     * Remind that selection: [Point, Point]; pos: Point, where Point is an integer offset in buffer
+     *
      * Viewers receive:
      * { selection?, pos? } // Same reasoning as above. EITHER selection OR pos
      */
@@ -201,7 +204,7 @@ const sessions = {};
       const cursorKey = formatter.formatRoomEditorCursor(roomId);
       const update : any = {};
       if (typeof data.pos === 'undefined' || data.pos === null) {
-        update.selection = `${data.selection[0].join(':')},${data.selection[1].join(':')}`;
+        update.selection = `${data.selection[0]}-${data.selection[1]}`;
       } else {
         update.pos = data.pos.join(':');
       }
@@ -224,12 +227,47 @@ const sessions = {};
       const yes = await db.hexistsAsync(cursorKey, 'selection');
       if (yes) {
         retval.selection = await db.hgetAsync(cursorKey, 'selection');
+        retval.selection = retval.selection.split('-');
       } else {
-        retval.selection = await db.hgetAsync(cursorKey, 'pos');
+        retval.pos = await db.hgetAsync(cursorKey, 'pos');
       }
       ack(retval);
     });
 
+    /**
+     * Insert characters to content of file
+     *
+     * editor:insert : { roomId, pos, content }
+     * Remind that pos is integer offset of insertion point in buffer
+     */
+    sock.on('editor:insert', async ({roomId, pos, content}) => {
+      const editorStateKey = formatter.formatRoomEditorState(roomId);
+      const filepath = await db.hgetAsync(editorStateKey, 'filepath');
+      const fileKey = formatter.formatRoomFileState(roomId, filepath);
+
+      let originalContent = await db.hgetAsync(fileKey, 'content');
+      originalContent = originalContent.substring(0, pos) +
+        content + originalContent.substring(pos + content.length);
+      await db.hsetAsync(fileKey, 'content', originalContent);
+    });
+
+    /**
+     * Delete characters to content of file
+     *
+     * editor:delete : { roomId, selection }
+     * Remind that selection is [Point, Point], where Point is an integer offset in buffer.
+     */
+    sock.on('editor:delete', async ({roomId, selection}) => {
+      const editorStateKey = formatter.formatRoomEditorState(roomId);
+      const [startPos, endPos] = selection;
+      const filepath = await db.hgetAsync(editorStateKey, 'filepath');
+      const fileKey = formatter.formatRoomFileState(roomId, filepath);
+
+      let originalContent = await db.hgetAsync(fileKey, 'content');
+      originalContent =
+        originalContent.substring(0, startPos) + originalContent.substring(endPos + 1);
+      await db.hsetAsync(fileKey, 'content', originalContent);
+    });
 
   });
 
