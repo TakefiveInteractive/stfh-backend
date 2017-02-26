@@ -78,16 +78,18 @@ const sessions = {};
      *
      * viewer:connect : { nickname, roomId }
      *
-     * Return with { userId }
+     * Return with { path, userId }
      */
     sock.on('viewer:connect', ({roomId, nickname}, ack) => {
       const viewerKey = formatter.formatRoomViewerKey(roomId, userId);
       const viewersListKey = formatter.formatRoomViewersListKey(roomId);
+      const editorStateKey = formatter.formatRoomEditorState(roomId);
 
       db.hmsetAsync(viewerKey, {userId, nickname, createTime: new Date()})
         .then(() => db.saddAsync(viewersListKey, userId))
         .then(() => sessions[roomId][userId] = {socket: sock, type: 'viewer'})
-        .then(() => ack({userId}));
+        .then(() => db.hgetAsync(editorStateKey, 'filepath'))
+        .then(path => ack({path, userId}));
     });
 
     /**
