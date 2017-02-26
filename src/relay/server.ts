@@ -239,6 +239,9 @@ const sessions = {};
      *
      * editor:insert : { roomId, pos, content }
      * Remind that pos is integer offset of insertion point in buffer
+     *
+     * Viewers receive:
+     * editor:insert : { content }
      */
     sock.on('editor:insert', async ({roomId, pos, content}) => {
       const editorStateKey = formatter.formatRoomEditorState(roomId);
@@ -249,6 +252,7 @@ const sessions = {};
       originalContent = originalContent.substring(0, pos) +
         content + originalContent.substring(pos + content.length);
       await db.hsetAsync(fileKey, 'content', originalContent);
+      await sendToClientsInRoom(roomId, 'editor:insert', {content});
     });
 
     /**
@@ -256,6 +260,9 @@ const sessions = {};
      *
      * editor:delete : { roomId, selection }
      * Remind that selection is [Point, Point], where Point is an integer offset in buffer.
+     *
+     * Viewers receive:
+     * editor:delete : { selection }
      */
     sock.on('editor:delete', async ({roomId, selection}) => {
       const editorStateKey = formatter.formatRoomEditorState(roomId);
@@ -267,6 +274,7 @@ const sessions = {};
       originalContent =
         originalContent.substring(0, startPos) + originalContent.substring(endPos + 1);
       await db.hsetAsync(fileKey, 'content', originalContent);
+      await sendToClientsInRoom(roomId, 'editor:delete', selection);
     });
 
   });
