@@ -5,10 +5,28 @@ import * as formatter from './formatter';
 
 const sockio = socketio();
 
+const sockets = {};
+
 (async function() {
   const db = <any> await redis;
 
+  const sendToClientsInRoom = async (roomId, eventname, payload?) => {
+    const roomKey = formatter.formatRoomViewersListKey(roomId);
+    const viewersList = await db.smembersAsync(roomKey);
+    viewersList.forEach(viewerId => Object.keys(sockets).forEach(id => {
+      if (sockets[id].type === 'viewer') {
+        sockets[id].emit(eventname, payload);
+      }
+    });
+  };
+
   sockio.on('connection', sock => {
+
+    const userId = uuidV4();
+    sockets[userId] = {
+      socket: sock,
+      type: ''
+    };
 
     /**
      * Broadcaster create room
@@ -17,21 +35,20 @@ const sockio = socketio();
      * room:create:ok
      */
     sock.on('room:create', ({roomName, broadcasterName}) => {
-      const id = uuidV4();
-      const broadcasterId = uuidV4();
-      const key = formatter.formatRoomKey(id);
+      const roomId = uuidV4();
+      const key = formatter.formatRoomKey(roomId);
 
-      db.hmsetAsync(key, {id, roomName})
+      db.hmsetAsync(key, {roomId, roomName})
         .then(() => {
-          const broadcasterKey = formatter.formatRoomBroadcasterKey(id);
+          const broadcasterKey = formatter.formatRoomBroadcasterKey(roomId);
           return db.hmsetAsync(broadcasterKey, {
-            id: broadcasterId,
+            id: userId,
             nickname: broadcasterName,
             createTime: new Date()
           })
         })
-        .then(() => db.hmsetAsync(key, {broadcasterId}))
-        .then(() => sock.emit('room:create:ok', {id, broadcasterId}));
+        .then(() => sockets[userId].type = 'broadcaster')
+        .then(() => sock.emit('room:create:ok', {roomId, userId}));
     });
 
     /**
@@ -43,16 +60,14 @@ const sockio = socketio();
      */
     sock.on('room:delete', ({ roomId, broadcasterId }) => {
       const roomKey = formatter.formatRoomKey(roomId);
-      const broadcasterKey = formatter.formatRoomBroadcasterKey(broadcasterId);
+      const broadcasterKey = formatter.formatRoomBroadcasterKey(userId);
 
-      db.hgetAsync(broadcasterKey, 'id')
-        .then(id => {
-          if (id !== broadcasterId) {
-            return sock.emit('room:delete:fail', { error: 'broadcasterId mismatch' });
-          }
-          return db.hdelAsync(broadcasterKey);
-        })
+      if (broadcasterId !== userId) {
+        return sock.emit('room:delete:fail', { error: 'broadcasterId mismatch' });
+      }
+      db.hdelAsync(broadcasterKey)
         .then(() => db.hdelAsync(roomKey))
+        .then(() => delete sockets[userId])
         .then(() => sock.emit('room:delete:ok'));
     });
 
@@ -63,13 +78,13 @@ const sockio = socketio();
      * viewer:connect:ok : { id }
      */
     sock.on('viewer:connect', ({roomId, nickname}) => {
-      const id = uuidV4();
-      const key = formatter.formatRoomViewerKey(roomId, id);
-      const viewersListKey = formatter.formatRoomViewersList(roomId);
+      const viewerKey = formatter.formatRoomViewerKey(roomId, userId);
+      const viewersListKey = formatter.formatRoomViewersListKey(roomId);
 
-      db.hmsetAsync(key, {id, nickname, createTime: new Date()})
-        .then(() => db.saddAsync(viewersListKey, id))
-        .then(() => sock.emit('viewer:connect:ok', {id}));
+      db.hmsetAsync(viewerKey, {userId, nickname, createTime: new Date()})
+        .then(() => db.saddAsync(viewersListKey, userId))
+        .then(() => sockets[userId].type = 'viewer')
+        .then(() => sock.emit('viewer:connect:ok', {userId}));
     });
 
     /**
@@ -77,13 +92,42 @@ const sockio = socketio();
      *
      * viewer:disconnect : { roomId, viewerId }
      * viewer:disconnect:ok
+     * room:disconnect:fail { reason } // Due to viewerId mismatch
      */
     sock.on('viewer:disconnect', ({roomId, viewerId}) => {
       const viewerKey = formatter.formatRoomViewerKey(roomId, viewerId);
-      const viewersListKey = formatter.formatRoomViewersList(roomId);
+      const viewersListKey = formatter.formatRoomViewersListKey(roomId);
+
+      if (viewerId !== userId) {
+        return sock.emit('viewer:disconnect:fail');
+      }
+
       db.hdelAsync(viewerKey)
         .then(() => db.spopAsync(viewersListKey))
+        .then(() => delete sockets[viewerId])
         .then(() => sock.emit('viewer:disconnect:ok'));
+    });
+
+    /**
+     * Update filelist. The file tree has to be in whole
+     *
+     * filelist:update : { roomId, fileList }
+     * room:ready
+     *
+     * Client side:
+     * filelist:push : { fileList }
+     */
+    sock.on('filelist:update', async ({roomId, fileList}) => {
+      const fileListKey = formatter.formatRoomFileListKey(roomId);
+      await db.setAsync(fileListKey, JSON.stringify(fileList));
+      await sendToClientsInRoom(roomId, 'filelist:push', {fileList});
+      sock.emit('room:ready');
+    });
+
+    sock.on('cursor:update', async data => {
+      if (typeof data.pos === 'undefined' || data.pos === null) {
+        
+      }
     });
 
   });
