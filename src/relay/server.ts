@@ -243,7 +243,7 @@ const sessions = {};
      * Remind that pos is integer offset of insertion point in buffer
      *
      * Viewers receive:
-     * editor:insert : { content }
+     * editor:insert : { pos, content }
      */
     sock.on('editor:insert', async ({roomId, pos, content}) => {
       const editorStateKey = formatter.formatRoomEditorState(roomId);
@@ -254,7 +254,7 @@ const sessions = {};
       originalContent = originalContent.substring(0, pos) +
         content + originalContent.substring(pos + content.length);
       await db.hsetAsync(fileKey, 'content', originalContent);
-      await sendToClientsInRoom(roomId, 'editor:insert', {content});
+      await sendToClientsInRoom(roomId, 'editor:insert', {pos, content});
     });
 
     /**
@@ -276,7 +276,7 @@ const sessions = {};
       originalContent =
         originalContent.substring(0, startPos) + originalContent.substring(endPos + 1);
       await db.hsetAsync(fileKey, 'content', originalContent);
-      await sendToClientsInRoom(roomId, 'editor:delete', selection);
+      await sendToClientsInRoom(roomId, 'editor:delete', { selection });
     });
 
   });
