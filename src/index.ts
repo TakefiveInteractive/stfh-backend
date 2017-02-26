@@ -5,4 +5,4 @@ import * as http from 'http';
 const httpServer = http.createServer(app);
 io.attach(httpServer);
 
-httpServer.listen(3000);
+httpServer.listen(process.env.PORT || 3000);
