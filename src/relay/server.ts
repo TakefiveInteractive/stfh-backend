@@ -2,6 +2,7 @@ import * as socketio from 'socket.io';
 import redis from './database';
 import * as uuidV4 from 'uuid/v4';
 import * as formatter from './formatter';
+import {cursorTo} from "readline";
 
 const sockio = socketio();
 
@@ -195,6 +196,27 @@ type Point = [number, number];
       }
       await db.hmsetAsync(cursorKey, update);
       await sendToClientsInRoom(roomId, 'editor:cursor', update);
+    });
+
+    /**
+     * Request refresh on editor cursor. ONLY call from a viewer.
+     *
+     * editor:cursor:refresh : { roomId }
+     *
+     * Viewers receive thru ack:
+     * { selection?, pos? }
+     * EITHER selection OR pos will be present
+     */
+    sock.on('editor:cursor:refresh', async ({roomId}, ack) => {
+      const cursorKey = formatter.formatRoomEditorCursor(roomId);
+      const retval = <any>{};
+      const yes = await db.hexistsAsync(cursorKey, 'selection');
+      if (yes) {
+        retval.selection = await db.hgetAsync(cursorKey, 'selection');
+      } else {
+        retval.selection = await db.hgetAsync(cursorKey, 'pos');
+      }
+      ack(retval);
     });
 
   });
