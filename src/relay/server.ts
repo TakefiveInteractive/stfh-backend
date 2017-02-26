@@ -179,7 +179,7 @@ const sessions = {};
       const fileKey = formatter.formatRoomFileState(roomId, path);
       const content = await db.hgetAsync(fileKey, 'content');
       if (!content) {
-        sessions[roomId].broadcasterSocket.emit('file:refresh', async ({content}) => {
+        sessions[roomId].broadcasterSocket.emit('file:refresh', {path}, async ({content}) => {
           await db.hsetAsync(fileKey, 'content', content);
           ack({content})
         });
