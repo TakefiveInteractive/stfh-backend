@@ -13,9 +13,9 @@ const sockets = {};
   const sendToClientsInRoom = async (roomId, eventname, payload?) => {
     const roomKey = formatter.formatRoomViewersListKey(roomId);
     const viewersList = await db.smembersAsync(roomKey);
-    viewersList.forEach(viewerId => Object.keys(sockets).forEach(id => {
-      if (sockets[id].type === 'viewer') {
-        sockets[id].emit(eventname, payload);
+    viewersList.forEach(viewerId => Object.keys(sockets[roomId]).forEach(id => {
+      if (sockets[roomId][id].type === 'viewer') {
+        sockets[roomId][id].emit(eventname, payload);
       }
     }));
   };
@@ -23,10 +23,6 @@ const sockets = {};
   sockio.on('connection', sock => {
 
     const userId = uuidV4();
-    sockets[userId] = {
-      socket: sock,
-      type: ''
-    };
 
     /**
      * Broadcaster create room
@@ -48,7 +44,10 @@ const sockets = {};
             createTime: new Date()
           })
         })
-        .then(() => sockets[userId].type = 'broadcaster')
+        .then(() => {
+          sockets[roomId] = {};
+          sockets[roomId][userId] = {socket: sock, type: 'broadcaster'};
+        })
         .then(() => ack({roomId, userId}));
     });
 
@@ -69,7 +68,7 @@ const sockets = {};
       }
       db.hdelAsync(broadcasterKey)
         .then(() => db.hdelAsync(roomKey))
-        .then(() => delete sockets[userId])
+        .then(() => delete sockets[roomId])
         .then(() => ack(null));
     });
 
@@ -86,7 +85,7 @@ const sockets = {};
 
       db.hmsetAsync(viewerKey, {userId, nickname, createTime: new Date()})
         .then(() => db.saddAsync(viewersListKey, userId))
-        .then(() => sockets[userId].type = 'viewer')
+        .then(() => sockets[roomId][userId] = {socket: sock, type: 'viewer'})
         .then(() => ack({userId}));
     });
 
@@ -108,7 +107,7 @@ const sockets = {};
 
       db.hdelAsync(viewerKey)
         .then(() => db.spopAsync(viewersListKey))
-        .then(() => delete sockets[viewerId])
+        .then(() => delete sockets[roomId][viewerId])
         .then(() => ack(null));
     });
 
@@ -117,22 +116,19 @@ const sockets = {};
      *
      * filelist:update : { roomId, fileList }
      *
-     * Broadcaster receives event
-     * room:ready
-     *
      * Viewers receive:
-     * filelist:push : { fileList }
+     * filelist:update : { fileList }
      */
     sock.on('filelist:update', async ({roomId, fileList}) => {
       const fileListKey = formatter.formatRoomFileListKey(roomId);
       await db.setAsync(fileListKey, JSON.stringify(fileList));
-      await sendToClientsInRoom(roomId, 'filelist:push', {fileList});
+      await sendToClientsInRoom(roomId, 'filelist:update', {fileList});
     });
 
     /**
      * Switch to another file
      *
-     * file:switch : { roomId, path, type }
+     * editor:switch : { roomId, path, type }
      *
      * Broadcaster MAY receive event
      *    file:refresh : { path }
@@ -144,7 +140,23 @@ const sockets = {};
       await db.hmsetAsync(fileKey, {filepath: path, fileType: type});
       if (yes) {
         sock.emit('file:refresh', {path});
+      } else {
+        await sendToClientsInRoom(roomId, 'file:switch', {path, type});
       }
+    });
+
+    /**
+     * Update file content. Also gets pushed to viewers.
+     *
+     * file:content : { roomId, path, content }
+     *
+     * Viewers receive:
+     * file:content : { path, content }
+     */
+    sock.on('file:content', async ({roomId, path, content}) => {
+      const fileKey = formatter.formatRoomFileState(roomId, path);
+      await db.hsetAsync(fileKey, 'content', content);
+      await sendToClientsInRoom(roomId, 'file:content', {path, content});
     });
 
     sock.on('cursor:update', async data => {
